@@ -1,0 +1,133 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"os/exec"
+	"time"
+)
+
+// To prevent the operating system from getting stuck on a manual input screen after rebooting 3 times,
+// this command instructs the system to ignore booting failures and proceed with a reboot.
+// Command: bcdedit /set {current} bootstatuspolicy IgnoreAllFailures
+
+// This command disables automatic and manual repair options during boot, enhancing booting progress.
+// It may prevent interaction screens requiring user input from appearing.
+// Command: bcdedit /set recoveryenabled NO
+
+// To undo the changes made by the previous commands, execute the following commands:
+// Re-enable displaying booting failures:
+// Command: bcdedit /set {current} bootstatuspolicy DisplayAllFailures
+// Re-enable automatic and manual repair options during boot:
+// Command: bcdedit /set recoveryenabled YES
+
+func Setup() {
+	if isAdmin() {
+		//LogInfo("This program is correctly running with admin permissions.")
+	} else {
+		LogError("This program is NOT running with admin permissions. Exiting in 1 minute...", nil)
+		time.Sleep(60 * time.Second)
+		LogFatal("Please run the program with admin permissions.", nil)
+	}
+
+	setBootOptions()
+	loadSettings()
+}
+
+var (
+	EthernetAdapterName string
+	RouterIpAddress     string
+)
+
+// Struct to hold settings
+type Settings struct {
+	EthernetAdapterName string `json:"ethernet_adapter_name"`
+	RouterIpAddress     string `json:"router_ip_address"`
+}
+
+// Function to load settings from config file or create new if not exist
+func loadSettings() {
+	// Define default settings
+	defaultSettings := Settings{
+		EthernetAdapterName: "Ethernet",
+		RouterIpAddress:     "192.168.178.1",
+	}
+
+	// Check if config file exists
+	if _, err := os.Stat("config.json"); os.IsNotExist(err) {
+		// Config file does not exist, create it with default settings
+		saveSettings(defaultSettings)
+		LogInfo("Created config.json")
+		EthernetAdapterName = defaultSettings.EthernetAdapterName
+		RouterIpAddress = defaultSettings.RouterIpAddress
+		LogInfo(fmt.Sprintf("ethernet_adapter_name: %s", EthernetAdapterName))
+		LogInfo(fmt.Sprintf("router_ip_address: %s", RouterIpAddress))
+		return
+	}
+
+	// Read config file
+	file, err := ioutil.ReadFile("config.json")
+	if err != nil {
+		LogFatal("Error reading config file", err)
+	}
+
+	// Unmarshal config data into settings struct
+	var settings Settings
+	err = json.Unmarshal(file, &settings)
+	if err != nil {
+		LogFatal("Error unmarshalling config data", err)
+	}
+
+	// Update global variables with loaded settings
+	EthernetAdapterName = settings.EthernetAdapterName
+	RouterIpAddress = settings.RouterIpAddress
+
+	LogInfo("Settings loaded from config.json")
+	LogInfo(fmt.Sprintf("ethernet_adapter_name: %s", EthernetAdapterName))
+	LogInfo(fmt.Sprintf("router_ip_address: %s", RouterIpAddress))
+}
+
+// Function to save settings to config file
+func saveSettings(settings Settings) {
+	// Marshal settings struct into JSON
+	data, err := json.MarshalIndent(settings, "", "    ")
+	if err != nil {
+		log.Fatalf("Error marshalling settings: %v", err)
+	}
+
+	// Write JSON data to config file
+	err = ioutil.WriteFile("config.json", data, 0644)
+	if err != nil {
+		log.Fatalf("Error writing config file: %v", err)
+	}
+}
+
+func isAdmin() bool {
+	_, err := os.Open("\\\\.\\PHYSICALDRIVE0")
+	return err == nil
+}
+
+func setBootOptions() {
+	//LogInfo("Changing two windows settings to prevent popups that require user input from appearing.")
+
+	commands := []string{
+		"bcdedit /set {current} bootstatuspolicy IgnoreAllFailures",
+		"bcdedit /set recoveryenabled NO",
+	}
+
+	for _, cmd := range commands {
+		err := runCommand(cmd)
+		if err != nil {
+			LogFatal("Error setting boot option", err)
+		}
+	}
+}
+
+func runCommand(cmd string) error {
+	command := exec.Command("cmd", "/C", cmd)
+	err := command.Run()
+	return err
+}

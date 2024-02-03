@@ -20,4 +20,4 @@ echo [2/2] Compilation done.
 echo.
 
 echo Press any key to exit...
-pause > nul
+timeout 3

@@ -7,7 +7,11 @@ import (
 )
 
 func main() {
-	LogInfo("Running NetRevive")
+	LogInfo("Running NetRevive application")
+
+	Setup()
+
+	go CheckIfEthernetIsWorking()
 
 	// Block the main thread until a signal is received
 	quit := make(chan os.Signal)
