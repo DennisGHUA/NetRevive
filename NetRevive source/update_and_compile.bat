@@ -1,4 +1,6 @@
 @echo off
+cd /d %~dp0
+
 echo [1/2] Updating packages...
 go get -u ./...
 echo [1/2] Packages updated and ready to compile.
