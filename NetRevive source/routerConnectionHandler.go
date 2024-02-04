@@ -10,20 +10,19 @@ import (
 )
 
 const (
-	//ethernetInterface              = "Ethernet"
-	//ip                             = "192.168.178.80"
-	maxAttemptsForConnectionReboot = 15 // This one should be higher than maxAttemptsForConnectionResets
-	maxAttemptsForConnectionResets = 12 // 12*10sec = 2 minutes
+	maxAttemptsForConnectionReboot = 6 // This one should be higher than maxAttemptsForConnectionResets
+	maxAttemptsForConnectionResets = 4 // 12*10sec = 2 minutes
+	pingerTimeout                  = 20
 )
 
 func CheckIfEthernetIsWorking() {
 	LogInfo("Starting ethernet checker module")
 
 	// Timeout before starting to check ethernet connection, this gives the computer time to reconnect after a reboot
-	time.Sleep(1 * time.Minute)
+	time.Sleep(5 * time.Minute)
 
 	// Enable ethernet driver to prevent crashing
-	toggleEthernetAdapterOn(true)
+	toggleEthernetAdapterOn(true, true)
 	time.Sleep(10 * time.Second)
 
 	for {
@@ -51,14 +50,14 @@ func checkEthernet(failedAttempts int, packetCount int) {
 
 		LogWarning(fmt.Sprintf("Unable to ping the router try: %d/%v", failedAttempts, maxAttemptsForConnectionReboot))
 		//LogInfo(fmt.Sprintf("Trying to send %v packets", packetCount))
-		LogInfo(fmt.Sprintf("Sent: %v Recv: %v Loss: %v%s", results.PacketsSent, results.PacketsRecv, results.PacketLoss, "%"))
+		LogWarning(fmt.Sprintf("Sent: %v Recv: %v Loss: %v%%", results.PacketsSent, results.PacketsRecv, results.PacketLoss))
 
 		// Recursive multiply package count
-		time.Sleep(8 * time.Second) // Everything is NOT OK check again in 10 seconds
+		time.Sleep(10 * time.Second) // Everything is NOT OK check again in 10 seconds
 		checkEthernet(failedAttempts, packetCount*2)
 	} else {
-		LogInfo(fmt.Sprintf("Ping OK -> Sent: %v Recv: %v Loss: %v%s", results.PacketsSent, results.PacketsRecv, results.PacketLoss, "%"))
-		time.Sleep(1 * time.Second) // Everything is OK check again in a minute
+		LogInfo(fmt.Sprintf("Ping OK -> Sent: %v Recv: %v Loss: %v%%", results.PacketsSent, results.PacketsRecv, results.PacketLoss))
+		time.Sleep(1 * time.Minute) // Everything is OK check again in a minute
 	}
 
 }
@@ -73,8 +72,8 @@ func packetPinger(ip string, packetCount int) *probing.Statistics {
 
 	pinger.SetPrivileged(true)
 	pinger.Count = packetCount
-	pinger.Timeout = 5 * time.Second  // 60
-	pinger.Interval = 1 * time.Second // 1
+	pinger.Timeout = pingerTimeout * time.Second // 60
+	pinger.Interval = 1 * time.Second            // 1
 
 	err = pinger.Run() // Blocks until finished.
 	if err != nil {
@@ -86,15 +85,15 @@ func packetPinger(ip string, packetCount int) *probing.Statistics {
 }
 
 func restoreEthernetConnection() {
-	LogInfo("Resetting ethernet adapter")
-	toggleEthernetAdapterOn(false)
+	LogWarning("Resetting ethernet adapter")
+	toggleEthernetAdapterOn(false, false)
 	time.Sleep(5 * time.Second) // 30
-	toggleEthernetAdapterOn(true)
+	toggleEthernetAdapterOn(true, false)
 	time.Sleep(20 * time.Second)
-	LogInfo("Ethernet adapter has been reset")
+	LogWarning("Ethernet adapter has been reset")
 }
 
-func toggleEthernetAdapterOn(enable bool) {
+func toggleEthernetAdapterOn(enable bool, silent bool) {
 	action := "disable"
 	if enable {
 		action = "enable"
@@ -106,12 +105,16 @@ func toggleEthernetAdapterOn(enable bool) {
 		LogError("Error running the command: %v", err)
 	}
 
-	LogInfo(fmt.Sprintf("Ethernet adapter %sd -> Command output: %v", action, strings.TrimSpace(string(output))))
+	if !silent {
+		LogWarning(fmt.Sprintf("Ethernet adapter %sd -> Command output: %v", action, strings.TrimSpace(string(output))))
+	} else {
+		LogInfo(fmt.Sprintf("Ethernet adapter %sd -> Command output: %v", action, strings.TrimSpace(string(output))))
+	}
 }
 
 func rebootPCWithEthernetEnabled() {
 	// Enable the Ethernet adapter
-	toggleEthernetAdapterOn(true)
+	toggleEthernetAdapterOn(true, false)
 
 	time.Sleep(5 * time.Second)
 
@@ -126,6 +129,6 @@ func rebootPCWithEthernetEnabled() {
 	}
 
 	// Log the rebooting process
-	LogInfo(fmt.Sprintf("Rebooting the system. -> Command output:\n%s\n", strings.TrimSpace(string(output))))
+	LogWarning(fmt.Sprintf("Rebooting the system. -> Command output: %s", strings.TrimSpace(string(output))))
 	time.Sleep(5 * time.Minute) // Pc should reboot within 1 minute
 }
