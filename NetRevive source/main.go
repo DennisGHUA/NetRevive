@@ -21,7 +21,7 @@ func (p *program) Start(s service.Service) error {
 func (p *program) run() {
 	LogInfo("Running NetRevive application")
 	verifyAdminRights()
-	runningNotAsService()
+	//runningNotAsService()
 	Setup()
 	go CheckIfEthernetIsWorking()
 
