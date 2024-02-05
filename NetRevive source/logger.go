@@ -6,11 +6,11 @@ import (
 	"github.com/pkg/errors"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 const (
-	logFilePath       = "NetRevive.log"
 	logTruncateLength = 1000
 	timeFormat        = "2006-01-02 15:04:05" // Timestamp format
 )
@@ -24,7 +24,7 @@ func LogInfo(msg string) {
 func LogWarning(msg string) {
 	logMessage := fmt.Sprintf("[WARN] %s", msg)
 	log.Println(logMessage)
-	logToFile(logFilePath, logMessage)
+	logToFile(logMessage)
 }
 
 // LogError logs a message with an [ERRO] prefix, along with the error message and stack trace if an error is present
@@ -34,7 +34,7 @@ func LogError(msg string, err error) {
 	if err != nil {
 		logMessage += fmt.Sprintf("\n%+v", errors.WithStack(err))
 	}
-	logToFile(logFilePath, logMessage)
+	logToFile(logMessage)
 }
 
 // LogFatal logs a message with an [FATL] prefix and exits the program with a non-zero status code, along with the error message and stack trace if an error is present
@@ -44,33 +44,43 @@ func LogFatal(msg string, err error) {
 	if err != nil {
 		logMessage += fmt.Sprintf("\n%+v", errors.WithStack(err))
 	}
-	logToFile(logFilePath, logMessage)
+	logToFile(logMessage)
 	panic(2)
 }
 
-func logToFile(filePath, message string) error {
+func logToFile(message string) error {
 	// Generate timestamp
 	timestamp := time.Now().Format(timeFormat)
 
 	// Format log message with timestamp
 	logMessage := fmt.Sprintf("[%s] %s", timestamp, message)
 
-	// Open the file in append mode
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	// Get the path of the executable
+	exePath, err := os.Executable()
 	if err != nil {
 		return err
 	}
+
+	// Get the directory of the executable
+	exeDir := filepath.Dir(exePath)
+
+	// Construct the log file path relative to the executable directory
+	logFilePath := filepath.Join(exeDir, "NetRevive.log")
+
+	// Open the file in append mode
+	file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
 	// Write the formatted log message to the file
 	if _, err := file.WriteString(logMessage + "\n"); err != nil {
 		return err
 	}
 
-	// Close the file after writing
-	file.Close()
-
 	// Re-open the file in read mode
-	file, err = os.OpenFile(filePath, os.O_RDONLY, 0644)
+	file, err = os.OpenFile(logFilePath, os.O_RDONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -86,11 +96,8 @@ func logToFile(filePath, message string) error {
 		return err
 	}
 
-	// Close the file after reading
-	file.Close()
-
 	// Re-open the file in write mode
-	file, err = os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err = os.OpenFile(logFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}

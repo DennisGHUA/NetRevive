@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 // To prevent the operating system from getting stuck on a manual input screen after rebooting 3 times,
@@ -47,7 +48,6 @@ type Settings struct {
 	LogIncidents        bool   `json:"log_incidents"`
 }
 
-// Function to load settings from config file or create new if not exist
 func loadSettings() {
 	// Define default settings
 	defaultSettings := Settings{
@@ -56,8 +56,20 @@ func loadSettings() {
 		LogIncidents:        true,
 	}
 
+	// Get the path of the executable
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Fatalf("Error getting executable path: %v", err)
+	}
+
+	// Get the directory of the executable
+	exeDir := filepath.Dir(exePath)
+
+	// Construct the config file path relative to the executable directory
+	configFilePath := filepath.Join(exeDir, configFileName)
+
 	// Check if config file exists
-	if _, err := os.Stat(configFileName); os.IsNotExist(err) {
+	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
 		// Config file does not exist, create it with default settings
 		saveSettings(defaultSettings)
 		LogInfo(fmt.Sprintf("Created %v", configFileName))
@@ -71,7 +83,7 @@ func loadSettings() {
 	}
 
 	// Read config file
-	file, err := ioutil.ReadFile(configFileName)
+	file, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
 		LogFatal("Error reading config file", err)
 	}
@@ -88,7 +100,7 @@ func loadSettings() {
 	RouterIpAddress = settings.RouterIpAddress
 	LogIncidents = settings.LogIncidents
 
-	LogInfo(fmt.Sprintf("Settings loaded from %v", configFileName))
+	LogInfo(fmt.Sprintf("Settings loaded from %v", configFilePath))
 	LogInfo(fmt.Sprintf("ethernet_adapter_name: %s", EthernetAdapterName))
 	LogInfo(fmt.Sprintf("router_ip_address: %s", RouterIpAddress))
 	LogInfo(fmt.Sprintf("log_incidents: %v", LogIncidents))
@@ -96,6 +108,18 @@ func loadSettings() {
 
 // Function to save settings to config file
 func saveSettings(settings Settings) {
+	// Get the path of the executable
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Fatalf("Error getting executable path: %v", err)
+	}
+
+	// Get the directory of the executable
+	exeDir := filepath.Dir(exePath)
+
+	// Construct the config file path relative to the executable directory
+	configFilePath := filepath.Join(exeDir, configFileName)
+
 	// Marshal settings struct into JSON
 	data, err := json.MarshalIndent(settings, "", "    ")
 	if err != nil {
@@ -103,7 +127,7 @@ func saveSettings(settings Settings) {
 	}
 
 	// Write JSON data to config file
-	err = ioutil.WriteFile(configFileName, data, 0644)
+	err = ioutil.WriteFile(configFilePath, data, 0644)
 	if err != nil {
 		log.Fatalf("Error writing config file: %v", err)
 	}
