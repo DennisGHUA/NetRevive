@@ -180,6 +180,9 @@ func InstallService() error {
 		Name:        "NetRevive",
 		DisplayName: "NetRevive",
 		Description: "NetRevive: Keeping Servers Online with Automated Recovery",
+		Option: service.KeyValue{
+			"FailureActions": "restart/restart/restart",
+		},
 	}
 
 	prg := &program{}

@@ -45,12 +45,16 @@ func checkEthernet(failedAttempts int, packetCount int) {
 	}
 
 	// Not a single package was received
-	if results.PacketsRecv == 0 {
+	if results == nil || results.PacketsRecv == 0 {
 		failedAttempts++
 
 		LogWarning(fmt.Sprintf("Unable to ping the router try: %d/%v", failedAttempts, maxAttemptsForConnectionReboot))
 		//LogInfo(fmt.Sprintf("Trying to send %v packets", packetCount))
-		LogWarning(fmt.Sprintf("Sent: %v Recv: %v Loss: %v%%", results.PacketsSent, results.PacketsRecv, results.PacketLoss))
+		if results != nil {
+			LogWarning(fmt.Sprintf("Sent: %v Recv: %v Loss: %v%%", results.PacketsSent, results.PacketsRecv, results.PacketLoss))
+		} else {
+			LogWarning("Pinger results is null")
+		}
 
 		// Recursive multiply package count
 		time.Sleep(10 * time.Second) // Everything is NOT OK check again in 10 seconds
@@ -65,7 +69,7 @@ func checkEthernet(failedAttempts int, packetCount int) {
 func packetPinger(ip string, packetCount int) *probing.Statistics {
 	pinger, err := probing.NewPinger(ip)
 	if err != nil {
-		LogFatal("Error creating pinger:", err)
+		LogError("Error creating pinger:", err)
 		return nil
 	}
 	defer pinger.Stop()
@@ -77,7 +81,7 @@ func packetPinger(ip string, packetCount int) *probing.Statistics {
 
 	err = pinger.Run() // Blocks until finished.
 	if err != nil {
-		LogFatal("Error running pinger:", err)
+		LogError("Error running pinger:", err)
 		return nil
 	}
 
